@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,14 @@ import {
   ScrollView,
   Alert,
   TextInput,
+  Modal,
+  Pressable,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Picker } from '@react-native-picker/picker';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-
-import { useTheme } from '../../contexts/ThemeContext';
-import { Unit, UNIT_LABEL } from '../../utils/weight';
+import {useTheme} from '../../contexts/ThemeContext';
+import {Unit} from '../../utils/weight';
 
 export type FormData = {
   quantity: number;
@@ -26,21 +27,19 @@ export type FormData = {
   unit: Unit;
 };
 
-const UNITS: Unit[] = ['kg', 't', 'lb', 'oz'];
+/* ---------------- catálogos ---------------- */
 const TRANSACTIONS = ['CAMARA', 'COMPRA', 'INVENTARIO', 'PROCESO', 'SERVICIO', 'VENTA'];
 const PRODUCTS     = ['Manzana', 'Naranja', 'Plátano', 'Pera'];
 const CONTAINERS   = ['Caja', 'Bolsa', 'Pallet'];
 const CALIBERS     = ['Pequeño', 'Mediano', 'Grande'];
 
-type Props = {
-  onSubmit: (data: FormData) => void;
-  onCancel: () => void;
-};
+type Props = {onSubmit: (d: FormData) => void; onCancel: () => void};
 
-export default function WeightForm({ onSubmit, onCancel }: Props) {
-  const { styles, colors } = useTheme();
+export default function WeightForm({onSubmit, onCancel}: Props) {
+  const {styles, colors} = useTheme();
+
+  /* ---------------- estado principal ---------------- */
   const [showDatePicker, setShowDatePicker] = useState(false);
-
   const [form, setForm] = useState<FormData>({
     quantity: 1,
     folio: '',
@@ -53,8 +52,21 @@ export default function WeightForm({ onSubmit, onCancel }: Props) {
     unit: 'kg',
   });
 
+  /* ---------------- hoja inferior genérica ---------------- */
+  const [sheet, setSheet] = useState<{
+    visible: boolean;
+    field: keyof FormData | null;
+    options: string[];
+  }>({visible: false, field: null, options: []});
+
+  const openSheet = (field: keyof FormData, options: string[]) =>
+    setSheet({visible: true, field, options});
+
+  const closeSheet = () => setSheet({visible: false, field: null, options: []});
+
+  /* ---------------- helpers ---------------- */
   const handle = (k: keyof FormData, v: any) =>
-    setForm(prev => ({ ...prev, [k]: v }));
+    setForm(prev => ({...prev, [k]: v}));
 
   const save = () => {
     if (!form.folio.trim()) {
@@ -64,46 +76,53 @@ export default function WeightForm({ onSubmit, onCancel }: Props) {
     onSubmit(form);
   };
 
-  /** Componente Picker reutilizable */
-  const renderPicker = (label: string, field: keyof FormData, items: string[]) => (
+  /** Input + botón que abre la hoja */
+  const Selector = ({
+    label,
+    field,
+    options,
+  }: {
+    label: string;
+    field: keyof FormData;
+    options: string[];
+  }) => (
     <>
       <Text style={styles.inputLabel}>{label}</Text>
-      <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginBottom: 16 }}>
-        <Picker
-          selectedValue={form[field] as string}
-          onValueChange={val => handle(field, val)}>
-          {items.map(it => (
-            <Picker.Item key={it} label={it} value={it} />
-          ))}
-        </Picker>
-      </View>
+      <TouchableOpacity
+        onPress={() => openSheet(field, options)}
+        style={{
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: 8,
+          padding: 12,
+          marginBottom: 16,
+        }}>
+        <Text style={{color: colors.foreground}}>{form[field]}</Text>
+      </TouchableOpacity>
     </>
   );
 
+  /* ---------------- UI ---------------- */
   return (
-    <View style={[styles.card, { padding: 0 }]}>
-      {/* encabezado */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+    <View style={[styles.card, {padding: 0}]}>
+      {/* ---------- encabezado ---------- */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        }}>
         <Text style={styles.cardTitle}>Registrar Peso</Text>
         <TouchableOpacity onPress={onCancel}>
           <MaterialIcons name="close" size={20} color={colors.mutedForeground} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
-        {/* Unidad */}
-        <Text style={styles.inputLabel}>Unidad</Text>
-        <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginBottom: 16 }}>
-          <Picker
-            selectedValue={form.unit}
-            onValueChange={val => handle('unit', val as Unit)}>
-            {UNITS.map(u => (
-              <Picker.Item key={u} label={UNIT_LABEL[u]} value={u} />
-            ))}
-          </Picker>
-        </View>
-
-        {/* Folio y Cantidad */}
+      <ScrollView contentContainerStyle={{padding: 16}}>
+        {/* Folio / Cantidad */}
         <Text style={styles.inputLabel}>Folio *</Text>
         <TextInput
           style={styles.input}
@@ -119,25 +138,31 @@ export default function WeightForm({ onSubmit, onCancel }: Props) {
           onChangeText={t => handle('quantity', parseInt(t) || 0)}
         />
 
-        {/* Pickers */}
-        {renderPicker('Transacción *', 'transaction', TRANSACTIONS)}
-        {renderPicker('Producto *',     'product',     PRODUCTS)}
-        {renderPicker('Contenedor *',   'container',   CONTAINERS)}
-        {renderPicker('Calibre *',      'caliber',     CALIBERS)}
+        {/* Selectores con hoja inferior */}
+        <Selector label="Transacción *" field="transaction" options={TRANSACTIONS} />
+        <Selector label="Producto *"     field="product"     options={PRODUCTS} />
+        <Selector label="Contenedor *"   field="container"   options={CONTAINERS} />
+        <Selector label="Calibre *"      field="caliber"     options={CALIBERS} />
 
         {/* Notas */}
         <Text style={styles.inputLabel}>Notas</Text>
         <TextInput
-          style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
+          style={[styles.input, {height: 100, textAlignVertical: 'top'}]}
           multiline
           value={form.notes}
           onChangeText={t => handle('notes', t)}
         />
 
-        {/* Fecha y hora */}
+        {/* Fecha & hora */}
         <Text style={styles.inputLabel}>Fecha y Hora</Text>
         <TouchableOpacity
-          style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, backgroundColor: colors.background, marginBottom: 16 }}
+          style={{
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 16,
+          }}
           onPress={() => setShowDatePicker(true)}>
           <Text>{new Date(form.timestamp).toLocaleString()}</Text>
         </TouchableOpacity>
@@ -147,23 +172,64 @@ export default function WeightForm({ onSubmit, onCancel }: Props) {
             value={new Date(form.timestamp)}
             mode="datetime"
             display="default"
-            onChange={(event, d) => {
+            onChange={(_, d) => {
               setShowDatePicker(false);
-              if (d) handle('timestamp', d.toISOString());
+              if (d) {handle('timestamp', d.toISOString());}
             }}
           />
         )}
 
         {/* botones */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <TouchableOpacity style={[styles.buttonOutline, { flex: 1, marginRight: 8 }]} onPress={onCancel}>
+        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+          <TouchableOpacity
+            style={[styles.buttonOutline, {flex: 1, marginRight: 8}]}
+            onPress={onCancel}>
             <Text style={styles.buttonTextSecondary}>Cancelar</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.buttonPrimary, { flex: 1 }]} onPress={save}>
+          <TouchableOpacity
+            style={[styles.buttonPrimary, {flex: 1}]}
+            onPress={save}>
             <Text style={styles.buttonText}>Guardar</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* ---------- hoja inferior ---------- */}
+      <Modal visible={sheet.visible} transparent animationType="fade">
+        {/* overlay */}
+        <TouchableWithoutFeedback onPress={closeSheet}>
+          <View style={{flex: 1, backgroundColor: '#00000055'}} />
+        </TouchableWithoutFeedback>
+
+        {/* contenedor opciones */}
+        <View
+          style={{
+            backgroundColor: colors.card,
+            paddingBottom: 12,
+            paddingTop: 8,
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+          }}>
+          {sheet.options.map(opt => (
+            <Pressable
+              key={opt}
+              onPress={() => {
+                if (sheet.field) {handle(sheet.field, opt);}
+                closeSheet();
+              }}
+              style={{padding: 16}}>
+              <Text
+                style={{
+                  fontSize: 18,
+                  color: opt === form[sheet.field as keyof FormData] ? colors.primary : colors.foreground,
+                  fontWeight: opt === form[sheet.field as keyof FormData] ? '700' : '400',
+                }}>
+                {opt}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </Modal>
     </View>
   );
 }

@@ -1,7 +1,7 @@
-/** Tipo de unidad manejada internamente */
 export type Unit = 'kg' | 't' | 'lb' | 'oz';
+export const UNITS: Unit[] = ['kg', 't', 'lb', 'oz'];
 
-/** Etiqueta de la unidad para UI */
+/* Mapeo a nombre largo – solo cuando sea necesario en UI (ej.: Picker) */
 export const UNIT_LABEL: Record<Unit, string> = {
   kg: 'Kilogramo',
   t:  'Tonelada',
@@ -9,17 +9,13 @@ export const UNIT_LABEL: Record<Unit, string> = {
   oz: 'Onzas',
 };
 
-/** Convierte un valor en kilogramos a la unidad destino */
-export function convert(valueKg: number, to: Unit): number {
-  switch (to) {
-    case 't':  return valueKg / 1_000;
-    case 'lb': return valueKg * 2.20462262185;
-    case 'oz': return valueKg * 35.27396195;
-    default:   return valueKg;            // kg
-  }
-}
-
-/** Devuelve string formateado con 2 decimales y etiqueta legible */
+/* Devuelve SOLO el número formateado (sin nombre / sin abreviatura) */
 export function convertWeight(valueKg: number, to: Unit): string {
-  return `${convert(valueKg, to).toFixed(2)} ${UNIT_LABEL[to]}`;
+  const v =
+    to === 'kg' ? valueKg :
+    to === 't'  ? valueKg / 1_000 :
+    to === 'lb' ? valueKg * 2.20462262 :
+                  valueKg * 35.2739619;
+
+  return v.toFixed(2);
 }

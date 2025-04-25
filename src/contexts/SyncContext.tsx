@@ -73,7 +73,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
        data.product, data.container, data.caliber, data.notes ?? '', data.timestamp]
     );
     await reloadLists();
-    if (isOnline) await syncAll();
+    if (isOnline) {await syncAll();}
   };
 
   /** syncSingle */
@@ -85,7 +85,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /** syncAll */
   const syncAll = async () => {
-    if (!isOnline || pending.length === 0) return;
+    if (!isOnline || pending.length === 0) {return;}
     setIsSyncing(true);
     for (const r of pending) {
       try { await syncSingle(r); } catch (e) { console.warn(e); }

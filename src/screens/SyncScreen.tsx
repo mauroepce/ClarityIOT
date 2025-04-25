@@ -194,6 +194,7 @@ export default function SyncScreen() {
 
       {/* listado */}
       <FlatList
+        nestedScrollEnabled
         data={activeTab === 'pending' ? pending : synced}
         renderItem={renderItem}
         keyExtractor={item => item.id}

@@ -77,7 +77,7 @@ export default function LoginScreen() {
               flexDirection: 'row',
               alignItems: 'center',
               borderWidth: 1,
-              borderColor: colors.input,
+              borderColor: colors.border,
               borderRadius: 8,
               marginBottom: 16,
             }}
@@ -106,7 +106,7 @@ export default function LoginScreen() {
               flexDirection: 'row',
               alignItems: 'center',
               borderWidth: 1,
-              borderColor: colors.input,
+              borderColor: colors.border,
               borderRadius: 8,
               marginBottom: 24,
             }}

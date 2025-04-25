@@ -154,22 +154,31 @@ export const BluetoothProvider: React.FC<{children: React.ReactNode}> = ({
   const connectToDevice = async (device: BluetoothDevice) => {
     setIsConnecting(true);
     try {
-      // 1) Conexión física
-      await RNBluetoothClassic.connectToDevice(device.address);
+      /* 1️⃣ bond si aún no lo está */
+      if (!device.bonded) {
+        await RNBluetoothClassic.pairDevice(device.address);
+      }
 
-      // 2) Actualiza el estado en el contexto
+      /* 2️⃣ conexión explícita (insecure + UUID SPP) */
+      await RNBluetoothClassic.connectToDevice(device.address, {
+        connectorType: 'rfcomm',   // opcional – 'rfcomm' es el valor por defecto
+        secureSocket : false,      // abre el socket “inseguro”
+        delimiter    : '\n',       // para readUntil / onDataRead
+      });
+
+      /* 3️⃣ estado */
       setIsConnected(true);
       setConnectedDevice(device);
-
-      // 3) Habilita la reconexión automática
       shouldReconnect.current = true;
-
-      // 4) Guarda SOLO la dirección MAC para futuras reconexiones
       await AsyncStorage.setItem('lastDeviceAddress', device.address);
-
       return true;
     } catch (e) {
       console.error('Error conectando:', e);
+      /* mensaje visible para el usuario */
+      Alert.alert(
+        'Conexión fallida',
+        'No se pudo abrir el socket Bluetooth. Verifica que el sensor esté encendido y emparejado.'
+      );
       setIsConnected(false);
       setConnectedDevice(null);
       return false;
