@@ -6,13 +6,18 @@ react {
     autolinkLibrariesWithApp()
 }
 
-def enableProguardInReleaseBuilds = false
+def keystorePropertiesFile = rootProject.file("keystore.properties")   //  android/keystore.properties
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
 
+def enableProguardInReleaseBuilds = false
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
     ndkVersion rootProject.ext.ndkVersion
-    buildToolsVersion rootProject.ext.buildToolsVersion
+    // buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace "com.clarityiot_app"
@@ -30,14 +35,23 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile     file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias      keystoreProperties['keyAlias']
+                keyPassword   keystoreProperties['keyPassword']
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig signingConfigs.debug
-            minifyEnabled enableProguardInReleaseBuilds
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
