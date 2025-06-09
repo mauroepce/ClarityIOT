@@ -1,13 +1,14 @@
-import React, {createContext, useState, useEffect, useRef, RefObject} from 'react';
+import React, {createContext, useState, useEffect, useRef, RefObject, useCallback} from 'react';
 import RNBluetoothClassic, {
-  BluetoothDevice,
+  BluetoothDevice
 } from 'react-native-bluetooth-classic';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {PermissionsAndroid, Platform, Alert} from 'react-native';
+import {PermissionsAndroid, Platform, Alert, EmitterSubscription} from 'react-native';
 import { Unit } from '../utils/weight';
 
 type BluetoothContextType = {
   shouldReconnect: RefObject<boolean>;
+  isReconnecting : boolean;
   isEnabled: boolean;
   isConnecting: boolean;
   isConnected: boolean;
@@ -25,6 +26,7 @@ type BluetoothContextType = {
 
 export const BluetoothContext = createContext<BluetoothContextType>({
   shouldReconnect: {current: true} as RefObject<boolean>,
+  isReconnecting : false,
   isEnabled: false,
   isConnecting: false,
   isConnected: false,
@@ -46,6 +48,7 @@ export const BluetoothProvider: React.FC<{children: React.ReactNode}> = ({
   const [isEnabled, setIsEnabled] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [connectedDevice, setConnectedDevice] =
     useState<BluetoothDevice | null>(null);
   const [devices, setDevices] = useState<BluetoothDevice[]>([]);
@@ -53,60 +56,64 @@ export const BluetoothProvider: React.FC<{children: React.ReactNode}> = ({
   const [weightKg, setWeightKg] = useState(0);
   const [unit, setUnit] = useState<Unit>('kg');
   const shouldReconnect = useRef(true);
+  const reconnectAttempts   = useRef(0);
+  const MAX_RECONNECT_TRIES = 3;
+  const RETRY_COOLDOWN_MS   = 10_000;
 
   useEffect(() => {
-    const checkBluetoothEnabled = async () => {
-      const enabled = await RNBluetoothClassic.isBluetoothEnabled();
+    (async () => {
+      const granted = await requestBluetoothPermissions();
+      if (!granted) {
+        Alert.alert(
+          'Permiso requerido',
+          'Sin permisos de Bluetooth la aplicación no puede funcionar.',
+        );
+        return;
+      }
+
+      let enabled = await RNBluetoothClassic.isBluetoothEnabled();
+      if (!enabled) {
+        enabled = await RNBluetoothClassic.requestBluetoothEnabled();
+      }
       setIsEnabled(enabled);
-      if(!enabled) {
-        await RNBluetoothClassic.requestBluetoothEnabled();
-        // Forzamos que isEnabled sea true
-        setIsEnabled(true);
+    })();
+  }, []);
+
+  useEffect(() => {
+    let sub: EmitterSubscription | null = null;
+
+    if (isConnected && connectedDevice) {
+      sub = (connectedDevice as any).onDataReceived(
+        (evt: { data: string }) => {
+          const v = parseFloat(evt.data.trim());
+          if (!Number.isNaN(v)) {
+            setWeightKg(v);
+          }
+        },
+      );
+    }
+
+    return () => {
+      if (sub) {
+        sub.remove();
+        sub = null;
       }
-      console.log('Bluetooth enabled:', enabled);
     };
-    checkBluetoothEnabled();
-
-    const interval = setInterval(async () => {
-      if (isEnabled && isConnected && connectedDevice) {
-        // Leer datos cada 500ms
-        try {
-          const data = await connectedDevice.read();
-          if (data) {
-            setWeightKg(parseFloat(data.trim()) || 0);
-          }
-        } catch (e: any) {
-          console.error('Error leyendo datos:', e);
-          if (e?.code === 'BLUETOOTH_NOT_ENABLED') {
-            setIsEnabled(false);
-          }
-        }
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [isConnected, connectedDevice, isEnabled]);
+  }, [isConnected, connectedDevice]);
 
   const requestBluetoothPermissions = async (): Promise<boolean> => {
     if (Platform.OS !== 'android') {
-      // iOS no requiere estos permisos en tiempo de ejecución
       return true;
     }
 
-    // Construimos el array de permisos según la versión de Android
     const perms = [
-      // En Android 12+ (API 31+)
       PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN!,
       PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT!,
-      // Ubicación (requiere para escaneo en muchos dispositivos)
       PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION!,
     ];
 
     try {
-      // Pedimos todos los permisos de una sola vez
       const granted = await PermissionsAndroid.requestMultiple(perms);
-
-      // granted es un objeto { [perm]: 'granted' | 'denied' | 'never_ask_again' }
       return Object.values(granted).every(
         status => status === PermissionsAndroid.RESULTS.GRANTED,
       );
@@ -151,41 +158,40 @@ export const BluetoothProvider: React.FC<{children: React.ReactNode}> = ({
 
   };
 
-  const connectToDevice = async (device: BluetoothDevice) => {
-    setIsConnecting(true);
-    try {
-      /* 1️⃣ bond si aún no lo está */
-      if (!device.bonded) {
-        await RNBluetoothClassic.pairDevice(device.address);
+  /* ---------- connectToDevice ---------- */
+  const connectToDevice = useCallback(
+    async (device: BluetoothDevice) => {
+      setIsConnecting(true);
+      try {
+        const opts: any = {
+          insecure : true,
+          uuid     : '00001101-0000-1000-8000-00805F9B34FB',
+          DELIMITER: '\n',
+        };
+        await RNBluetoothClassic.connectToDevice(device.address, opts);
+
+        /* ✅ éxito */
+        setIsConnected(true);
+        setConnectedDevice(device);
+        shouldReconnect.current   = true;
+        reconnectAttempts.current = 0;
+        await AsyncStorage.setItem('lastDeviceAddress', device.address);
+        return true;
+
+      } catch (e: any) {
+        console.error('Error conectando:', e);
+          if (e?.message?.includes('socket') || e?.message?.includes('read failed')) {
+            shouldReconnect.current = false;
+          }
+          setIsConnected(false);
+          setConnectedDevice(null);
+          return false;
+      } finally {
+        setIsConnecting(false);
       }
-
-      /* 2️⃣ conexión explícita (insecure + UUID SPP) */
-      await RNBluetoothClassic.connectToDevice(device.address, {
-        connectorType: 'rfcomm',   // opcional – 'rfcomm' es el valor por defecto
-        secureSocket : false,      // abre el socket “inseguro”
-        delimiter    : '\n',       // para readUntil / onDataRead
-      });
-
-      /* 3️⃣ estado */
-      setIsConnected(true);
-      setConnectedDevice(device);
-      shouldReconnect.current = true;
-      await AsyncStorage.setItem('lastDeviceAddress', device.address);
-      return true;
-    } catch (e) {
-      console.error('Error conectando:', e);
-      /* mensaje visible para el usuario */
-      Alert.alert(
-        'Conexión fallida',
-        'No se pudo abrir el socket Bluetooth. Verifica que el sensor esté encendido y emparejado.'
-      );
-      setIsConnected(false);
-      setConnectedDevice(null);
-      return false;
-    } finally {
-      setIsConnecting(false);
-    }
-  };
+    },
+    [],
+  );
 
   const disconnectDevice = async () => {
     // Evitar reconexión automática
@@ -203,25 +209,42 @@ export const BluetoothProvider: React.FC<{children: React.ReactNode}> = ({
     }
   };
 
-  const reconnectToLastDevice = async () => {
+  const reconnectToLastDevice = useCallback(async () => {
     const lastAddress = await AsyncStorage.getItem('lastDeviceAddress');
-    if (!lastAddress) {
-      return false;
-    }
+    if (!lastAddress) {return false;}
 
-    // Buscar el dispositivo en los emparejados
     const bonded = await RNBluetoothClassic.getBondedDevices();
     const device = bonded.find(d => d.address === lastAddress);
-    if (!device) {
-      return false;
-    }
+    if (!device) {return false;}
 
     return await connectToDevice(device);
-  };
+  }, [connectToDevice]);
+
+  /* ---------- intenta reconectar ---------- */
+  useEffect(() => {
+    if (
+      shouldReconnect.current &&
+      isEnabled && !isConnected && !isConnecting &&
+      reconnectAttempts.current < MAX_RECONNECT_TRIES
+    ) {
+      setIsReconnecting(true);                 // 👈
+      reconnectAttempts.current += 1;
+      reconnectToLastDevice()
+        .finally(() => {
+          setIsReconnecting(false);            // 👈
+          if (!isConnected) {
+            setTimeout(() => {}, RETRY_COOLDOWN_MS);
+          } else {
+            reconnectAttempts.current = 0;
+          }
+        });
+    }
+  }, [isEnabled, isConnected, isConnecting, reconnectToLastDevice]);
 
   return (
     <BluetoothContext.Provider
       value={{
+        isReconnecting,
         isEnabled,
         isConnecting,
         isConnected,

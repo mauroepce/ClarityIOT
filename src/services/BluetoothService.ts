@@ -1,4 +1,3 @@
-// src/services/BluetoothService.ts
 import RNBluetoothClassic, {
     BluetoothDevice,
   } from 'react-native-bluetooth-classic';

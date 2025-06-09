@@ -1,4 +1,3 @@
-// src/navigation/MainTabs.tsx
 import React from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import MaterialIcons              from 'react-native-vector-icons/MaterialIcons';

@@ -1,73 +1,113 @@
-// src/screens/BTReaderScreen.tsx
-import React, {useContext, useEffect, useState} from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   View,
   Text,
+  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  ScrollView,
   Modal,
   Pressable,
   TouchableWithoutFeedback,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import {BluetoothContext} from '../contexts/BluetoothContext';
-import {SyncContext} from '../contexts/SyncContext';
-import {useTheme} from '../contexts/ThemeContext';
-import {convertWeight, UNIT_LABEL, UNITS} from '../utils/weight';
-import DeviceList from '../components/bluetooth/DeviceList';
-import WeightForm from '../components/forms/WeightForm';
+import { NavigationProp, useNavigation } from '@react-navigation/native';
+
+import { BluetoothContext } from '../contexts/BluetoothContext';
+import { SyncContext }      from '../contexts/SyncContext';
+import { useTheme }         from '../contexts/ThemeContext';
+import { convertWeight, UNIT_LABEL, UNITS } from '../utils/weight';
+import DeviceList   from '../components/bluetooth/DeviceList';
+import WeightForm   from '../components/forms/WeightForm';
+import MessageModal from '../components/ui/MessageModal';
+import { BluetoothDevice } from 'react-native-bluetooth-classic';
+import { CatalogContext } from '../contexts/CatalogContext';
+import { WeightRecord } from '../types';
+
+/* ——— rutas que vamos a navegar desde aquí ——— */
+type RootStackParamList = {
+  Sync : { openTab?: 'pending' | 'synced' };
+};
 
 export default function BTReaderScreen() {
-  const {
-    isEnabled,
-    isConnecting,
-    isConnected,
-    connectedDevice,
-    devices,
-    scanning,
-    weightKg,
-    unit,
-    setUnit,
-    shouldReconnect,
-    scanForDevices,
-    connectToDevice,
-    disconnectDevice,
-    reconnectToLastDevice,
-  } = useContext(BluetoothContext);
+  /* BLUETOOTH */
+  const bt = useContext(BluetoothContext);
 
-  const {addRecord} = useContext(SyncContext);
-  const {styles, colors} = useTheme();
+  /* SYNC */
+  const { addRecord, isOnline } = useContext(SyncContext);
+  const { lookup } = useContext(CatalogContext);
+
+  /* UI local */
+  const { styles, colors } = useTheme();
+  const nav = useNavigation<NavigationProp<RootStackParamList>>();
 
   const [showDeviceList, setShowDeviceList] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [unitModal, setUnitModal] = useState(false);
+  const [showForm,       setShowForm]       = useState(false);
+  const [unitModal,      setUnitModal]      = useState(false);
+  const [lastConnectError, setLastConnectError] = useState<string | null>(null);
 
-  /* ---------- reconexión ---------- */
-  useEffect(() => {
-    if (shouldReconnect.current && isEnabled && !isConnected && !isConnecting) {
-      reconnectToLastDevice();
-    }
-  }, [isEnabled, isConnected, isConnecting, reconnectToLastDevice, shouldReconnect]);
-
-  /* ---------- abre form con dato válido ---------- */
-  useEffect(() => {
-    if (weightKg > 0 && isConnected) setShowForm(true);
-  }, [weightKg, isConnected]);
+  type ModalState =
+    | { show: false }
+    | { show: true; type: 'success' | 'error'; msg: string };
+  const [modal, setModal] = useState<ModalState>({ show: false });
 
   /* ---------- helpers ---------- */
   const btStatus = () => {
-    if (!isEnabled)
-      return <Text style={{color: colors.destructive}}>Bluetooth desactivado</Text>;
-    if (isConnecting)
-      return <ActivityIndicator size="small" color={colors.primary} />;
-    if (isConnected && connectedDevice)
-      return <Text style={{color: colors.primary}}>Conectado a {connectedDevice.name}</Text>;
-    if (scanning)
-      return <Text style={{color: colors.primary}}>Buscando dispositivos…</Text>;
-    return <Text style={{color: colors.mutedForeground}}>No conectado</Text>;
+    if (!bt.isEnabled)
+      {return <Text style={{ color: colors.destructive }}>Bluetooth desactivado</Text>;}
+    if (bt.isReconnecting)
+      {return <Text style={{ color: colors.primary }}>Reintentando…</Text>;}
+    if (bt.isConnecting)
+      {return <ActivityIndicator size="small" color={colors.primary} />;}
+    if (bt.isConnected && bt.connectedDevice)
+      {return (
+        <Text style={{ color: colors.primary }}>
+          Conectado a {bt.connectedDevice.name}
+        </Text>
+      );}
+    if (bt.scanning)
+      {return <Text style={{ color: colors.primary }}>Buscando dispositivos…</Text>;}
+    return <Text style={{ color: colors.mutedForeground }}>No conectado</Text>;
   };
+
+  const handleDeviceSelect = async (d: BluetoothDevice) => {
+    const ok = await bt.connectToDevice(d);
+    if (ok) {
+      setShowDeviceList(false);
+      setLastConnectError(null);
+    } else {
+      setLastConnectError(
+        'No se pudo abrir el socket bluetooth.\nVerifica que el sensor esté encendido y emparejado.',
+      );
+    }
+  };
+
+  /* ---------- efectos ---------- */
+  useEffect(() => {
+    // reconexión automática
+    if (
+      bt.shouldReconnect.current &&
+      bt.isEnabled &&
+      !bt.isConnected &&
+      !bt.isConnecting
+    ) {
+      bt.reconnectToLastDevice();
+    }
+  }, [bt]);
+
+  // abre el formulario al llegar la primera lectura válida
+  useEffect(() => {
+    if (bt.weightKg > 0 && bt.isConnected) {setShowForm(true);}
+  }, [bt.weightKg, bt.isConnected]);
+
+  // alerta de error de conexión BT
+  useEffect(() => {
+    if (lastConnectError) {
+      Alert.alert('Conexión fallida', lastConnectError, [
+        { text: 'OK', onPress: () => setLastConnectError(null) },
+      ]);
+    }
+  }, [lastConnectError]);
 
   /* ---------- UI ---------- */
   return (
@@ -76,43 +116,51 @@ export default function BTReaderScreen() {
         <Text style={styles.h1}>Lector de Peso Bluetooth</Text>
         {btStatus()}
 
-        {/* ---------------- estado CONECTADO ---------------- */}
-        {isConnected ? (
+        {/* -------- CONECTADO -------- */}
+        {bt.isConnected ? (
           <View style={styles.card}>
-            {/* peso en vivo – tap para cambiar unidad */}
             <Pressable onPress={() => setUnitModal(true)}>
               <Text style={styles.weightDisplay}>
-                {convertWeight(weightKg, unit)} {unit.toUpperCase()}
+                {convertWeight(bt.weightKg, bt.unit)} {bt.unit.toUpperCase()}
               </Text>
             </Pressable>
 
-            <TouchableOpacity style={styles.buttonOutline} onPress={disconnectDevice}>
+            <TouchableOpacity
+              style={styles.buttonOutline}
+              onPress={bt.disconnectDevice}>
               <Text style={styles.buttonTextSecondary}>Desconectar</Text>
             </TouchableOpacity>
 
             {!showForm && (
               <TouchableOpacity
-                style={[styles.buttonPrimary, {marginTop: 16}]}
+                style={[styles.buttonPrimary, { marginTop: 16 }]}
                 onPress={() => setShowForm(true)}>
                 <Text style={styles.buttonText}>Registrar Peso</Text>
               </TouchableOpacity>
             )}
           </View>
         ) : (
-          /* ---------------- estado NO conectado ---------------- */
+          /* -------- NO conectado -------- */
           <TouchableOpacity
             style={styles.buttonPrimary}
             onPress={async () => {
-              if (!isEnabled) {
-                Alert.alert('Bluetooth desactivado', 'Active Bluetooth en el sistema');
+              if (!bt.isEnabled) {
+                Alert.alert(
+                  'Bluetooth desactivado',
+                  'Active Bluetooth en el sistema',
+                );
                 return;
               }
               setShowDeviceList(true);
-              await scanForDevices();
+              await bt.scanForDevices();
             }}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <MaterialIcons name="search" size={20} color={colors.primaryForeground} />
-              <Text style={[styles.buttonText, {marginLeft: 8}]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialIcons
+                name="search"
+                size={20}
+                color={colors.primaryForeground}
+              />
+              <Text style={[styles.buttonText, { marginLeft: 8 }]}>
                 Buscar Dispositivos
               </Text>
             </View>
@@ -122,13 +170,9 @@ export default function BTReaderScreen() {
         {/* listado de dispositivos */}
         {showDeviceList && (
           <DeviceList
-            devices={devices}
-            isScanning={scanning}
-            onDeviceSelect={async d => {
-              const ok = await connectToDevice(d);
-              if (ok) setShowDeviceList(false);
-              else Alert.alert('Error', 'No se pudo conectar');
-            }}
+            devices={bt.devices}
+            isScanning={bt.scanning}
+            onDeviceSelect={handleDeviceSelect}
             onClose={() => setShowDeviceList(false)}
           />
         )}
@@ -137,23 +181,52 @@ export default function BTReaderScreen() {
         {showForm && (
           <WeightForm
             onSubmit={async d => {
-              await addRecord({...d, weight: weightKg, unit});
-              Alert.alert('Éxito', 'Registro guardado');
-              setShowForm(false);
+              if (bt.weightKg <= 0) {
+                setModal({ show:true, type:'error', msg:'No se recibió un peso válido' });
+                return;
+              }
+              try {
+                const safe = (m: Record<string, string>, lbl: string): string => m[lbl] ?? lbl;
+                const payload = {
+                  ...d,
+                  weight: bt.weightKg,
+                  unit  : bt.unit,
+
+                  transactionId : safe(lookup.transaccion, d.transaction),
+                  productId     : safe(lookup.producto,    d.product),
+                  subproductId  : safe(lookup.subproducto, d.subproduct),
+                  boxId         : safe(lookup.caja,        d.box),
+                  caliberId     : safe(lookup.calibre,     d.caliber),
+                  originId      : safe(lookup.origen,      d.origin),
+                  processId     : safe(lookup.proceso,     d.process),
+                } satisfies Omit<WeightRecord,'id'|'synced'>;
+                
+                console.log('[DEBUG] label → id',
+                d.transaction,   lookup.transaccion[d.transaction],
+                d.product,       lookup.producto[d.product],
+                d.subproduct,    lookup.subproducto[d.subproduct]);
+
+                await addRecord(payload);
+
+                setModal({ show:true, type:'success', msg:'Registro guardado' });
+
+                setShowForm(false);
+
+              } catch (err) {
+                console.log('[BT] ❌ onSubmit — error en addRecord o syncAllNow →', err);
+                setModal({ show:true, type:'error', msg:'No se pudo guardar el registro' });
+              }
             }}
             onCancel={() => setShowForm(false)}
           />
         )}
       </ScrollView>
 
-      {/* ---------- Bottom-sheet para unidad ---------- */}
+      {/* ---------- selector de unidad ---------- */}
       <Modal visible={unitModal} transparent animationType="fade">
-        {/* overlay (cierra al tocar fuera) */}
         <TouchableWithoutFeedback onPress={() => setUnitModal(false)}>
-          <View style={{flex: 1, backgroundColor: '#00000055'}} />
+          <View style={{ flex: 1, backgroundColor: '#00000055' }} />
         </TouchableWithoutFeedback>
-
-        {/* hoja inferior */}
         <View
           style={{
             backgroundColor: colors.card,
@@ -166,15 +239,15 @@ export default function BTReaderScreen() {
             <Pressable
               key={u}
               onPress={() => {
-                setUnit(u);
+                bt.setUnit(u);
                 setUnitModal(false);
               }}
-              style={{padding: 16}}>
+              style={{ padding: 16 }}>
               <Text
                 style={{
                   fontSize: 18,
-                  color: u === unit ? colors.primary : colors.foreground,
-                  fontWeight: u === unit ? '700' : '400',
+                  color: u === bt.unit ? colors.primary : colors.foreground,
+                  fontWeight: u === bt.unit ? '700' : '400',
                 }}>
                 {UNIT_LABEL[u]}
               </Text>
@@ -182,6 +255,25 @@ export default function BTReaderScreen() {
           ))}
         </View>
       </Modal>
+
+      {/* ---------- modal éxito / error ---------- */}
+      <MessageModal
+        visible={modal.show}
+        type={modal.show ? modal.type : 'success'}
+        message={modal.show ? modal.msg : ''}
+        onClose={() => {
+          // cierro el modal primero
+          setModal({ show: false });
+
+          // decido el tab destino UNA sola vez
+          const targetTab: 'pending' | 'synced' = isOnline ? 'synced' : 'pending';
+
+          // navego en el siguiente tick (evita interacción modal/navegación)
+          setTimeout(() => {
+            nav.navigate('Sync', { openTab: targetTab });
+          }, 50);
+        }}
+      />
     </View>
   );
 }

@@ -1,4 +1,3 @@
-// src/screens/LoginScreen.tsx
 import React, { useState, useContext } from 'react';
 import {
   View,
@@ -74,6 +73,7 @@ export default function LoginScreen() {
           <Text style={styles.inputLabel}>Usuario</Text>
           <View
             style={{
+              width: '100%',
               flexDirection: 'row',
               alignItems: 'center',
               borderWidth: 1,
@@ -103,6 +103,7 @@ export default function LoginScreen() {
           <Text style={styles.inputLabel}>Contraseña</Text>
           <View
             style={{
+              width: '100%',
               flexDirection: 'row',
               alignItems: 'center',
               borderWidth: 1,
@@ -130,7 +131,7 @@ export default function LoginScreen() {
           </View>
 
           <TouchableOpacity
-            style={styles.buttonPrimary}
+            style={[styles.buttonPrimary, { alignSelf: 'stretch' }]}
             onPress={handleLogin}
             disabled={loading}
           >
