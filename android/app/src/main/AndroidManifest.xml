@@ -31,9 +31,8 @@
     <!-- ─────── APLICACIÓN ──────────────────────────────────────────── -->
     <application
         android:name=".MainApplication"
-        android:label="Clarity-IOT"
+        android:label="eclariti"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/AppTheme"
         android:allowBackup="false"
         android:supportsRtl="true">
