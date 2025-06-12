@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { AppContext } from '../contexts/AppContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -48,25 +49,21 @@ export default function LoginScreen() {
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
           <View
             style={{
-              width: 100,
-              height: 100,
+              width: 110,
+              height: 110,
               backgroundColor: colors.primary,
-              borderRadius: 50,
+              borderRadius: 55,
               alignItems: 'center',
               justifyContent: 'center',
-            }}
-          >
-            <Text
-              style={{
-                color: colors.primaryForeground,
-                fontSize: 24,
-                fontWeight: 'bold',
-              }}
-            >
-              IOT
-            </Text>
+              overflow: 'hidden',
+            }}>
+            <Image
+              source={require('../assets/ic_launcher.png')} 
+              style={{width: 120, height: 120, resizeMode: 'contain'}}
+            />
           </View>
-          <Text style={styles.h1}>Iniciar Sesión</Text>
+
+          <Text style={[styles.h1, {marginTop: 20}]}>Iniciar Sesión</Text>
         </View>
 
         <View style={{ maxWidth: 320, alignSelf: 'center' }}>

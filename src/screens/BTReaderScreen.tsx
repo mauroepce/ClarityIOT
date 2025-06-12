@@ -200,11 +200,6 @@ export default function BTReaderScreen() {
                   originId      : safe(lookup.origen,      d.origin),
                   processId     : safe(lookup.proceso,     d.process),
                 } satisfies Omit<WeightRecord,'id'|'synced'>;
-                
-                console.log('[DEBUG] label → id',
-                d.transaction,   lookup.transaccion[d.transaction],
-                d.product,       lookup.producto[d.product],
-                d.subproduct,    lookup.subproducto[d.subproduct]);
 
                 await addRecord(payload);
 

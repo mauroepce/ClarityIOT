@@ -85,7 +85,14 @@ export const BluetoothProvider: React.FC<{children: React.ReactNode}> = ({
     if (isConnected && connectedDevice) {
       sub = (connectedDevice as any).onDataReceived(
         (evt: { data: string }) => {
-          const v = parseFloat(evt.data.trim());
+          const match = evt.data.match(/(\d+(?:\.\d+)?)(?=\s*kg)/i);
+
+          if (!match) {
+            // No encontramos número + "kg"  →  ignoramos sin logear cada vez
+            return;
+          }
+
+          const v = Number.parseFloat(match[1]);
           if (!Number.isNaN(v)) {
             setWeightKg(v);
           }
@@ -175,6 +182,7 @@ export const BluetoothProvider: React.FC<{children: React.ReactNode}> = ({
         setConnectedDevice(device);
         shouldReconnect.current   = true;
         reconnectAttempts.current = 0;
+        await AsyncStorage.setItem('moduleMAC', device.address);
         await AsyncStorage.setItem('lastDeviceAddress', device.address);
         return true;
 

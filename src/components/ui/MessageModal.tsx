@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { useTheme } from '../../contexts/ThemeContext';
 
 type Props = {
   visible : boolean;
@@ -10,7 +11,8 @@ type Props = {
 };
 
 export default function MessageModal({ visible, type, message, onClose }: Props) {
-  const color = type === 'success' ? '#22c55e' : '#ef4444'; // tailwind green-500 / red-500
+    const { colors } = useTheme();
+  const color = type === 'success' ? colors.primary : colors.destructive;
 
   return (
     <Modal visible={visible} transparent animationType="fade">

@@ -1,9 +1,10 @@
 import axios from 'axios';
-import { API_BASE, API_TOKEN, API_ORG, API_CCOST, ID_MODULE } from '@env';
+import { API_BASE, API_TOKEN, API_ORG, API_CCOST } from '@env';
 import { WeightRecord } from '../types';
 import dayjs from 'dayjs';
 import utc   from 'dayjs/plugin/utc';
 import tz    from 'dayjs/plugin/timezone';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 dayjs.extend(utc);
 dayjs.extend(tz);
@@ -42,14 +43,15 @@ export async function getMaestro(tipo: Maestro): Promise<MaestroItem[]> {
 export async function postPeso(
   r: WeightRecord,
 ): Promise<{ success: true; info: string }> {
-  const ts = dayjs(r.timestamp)
-    .tz('America/Santiago')
-    .format('YYYY-MM-DD HH:mm:ss');
+  const ts = dayjs(r.timestamp).tz('America/Santiago').format('YYYY-MM-DD HH:mm:ss');
+  const mac  = (await AsyncStorage.getItem('moduleMAC')) ?? '00:00:00:00:00:00';
+  const macClean = mac.replace(/[:\-]/g, '').toUpperCase();
+  const idModulo = `CE_PROD_${macClean}`;
 
   const payload = {
     wsname: 'insert_record_pesa',
     token: API_TOKEN,
-    idmodulo: ID_MODULE,
+    idmodulo: idModulo,
     fecha: [ts, ts],
     cantidad: r.quantity,
     peso: r.weight,

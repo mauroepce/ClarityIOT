@@ -17,24 +17,24 @@ type Palette = {
 };
 
 const light: Palette = {
-  background: '#ffffff',
-  foreground: '#0f172a',
+  background: '#F8F9FC',
+  foreground: '#0F172A',
   card: '#ffffff',
-  primary: '#0f172a',
+  primary: '#7960F4',
   primaryForeground: '#ffffff',
-  secondary: '#f1f5f9',
-  secondaryForeground: '#0f172a',
-  muted: '#f1f5f9',
+  secondary: '#E2E8F0',
+  secondaryForeground: '#475569',
+  muted: '#E2E8F0',
   mutedForeground: '#64748b',
   destructive: '#ef4444',
-  border: '#e2e8f0',
+  border: '#CBD5E1',
 };
 
 const dark: Palette = {
   background: '#0f172a',
   foreground: '#f8fafc',
   card: '#1e293b',
-  primary: '#38bdf8',
+  primary: '#9380FF',
   primaryForeground: '#0f172a',
   secondary: '#334155',
   secondaryForeground: '#f8fafc',
