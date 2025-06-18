@@ -11,7 +11,7 @@ type Props = {
 };
 
 export default function MessageModal({ visible, type, message, onClose }: Props) {
-    const { colors } = useTheme();
+  const { colors } = useTheme();
   const color = type === 'success' ? colors.primary : colors.destructive;
 
   return (
