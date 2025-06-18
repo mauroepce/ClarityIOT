@@ -1,97 +1,69 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# eclariti – App móvil Bluetooth/Offline Sync  
+Versión **1.0.0** – jun-2025  
+Autor: Clariti
 
-# Getting Started
+---
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Índice
+1. [Descripción general](#descripción-general)  
+2. [Arquitectura & tecnologías](#arquitectura--tecnologías)  
+3. [Requisitos previos](#requisitos-previos)  
+4. [Clonado e instalación](#clonado-e-instalación)  
+5. [Variables de entorno `.env`](#variables-de-entorno-env)  
 
-## Step 1: Start Metro
+---
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Descripción general
+Aplicación React Native para **lectura de sensores de peso vía Bluetooth** con:
+- Reconexión automática y uso de la MAC para `CE_PROD_<MAC>`.
+- Formulario de producción y almacenamiento **offline** en SQLite.
+- Sincronización automática/API REST cuando hay conexión.
+- Soporte de **modo claro/oscuro**.  
+- _Branding_ y paleta corporativa solicitada.
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+---
 
-```sh
-# Using npm
-npm start
+## Arquitectura & tecnologías
+| Capa                | Tech / librerías principales                        |
+|---------------------|----------------------------------------------------|
+| UI & Navegación     | React Native 0.72, React Navigation 6              |
+| Estado & contexto   | React Context + Hooks                              |
+| Bluetooth           | `react-native-bluetooth-classic`                   |
+| BD local            | `react-native-sqlite-storage` (tabla **weights**)  |
+| Networking          | Axios                                             |
+| Fechas/zonas horarias| Day.js (+ UTC/TZ plugins)                         |
+| Build & firma       | Android Studio Giraffe / Gradle 8 / `jarsigner`    |
 
-# OR using Yarn
-yarn start
-```
+---
 
-## Step 2: Build and run your app
+## Requisitos previos
+* **Node.js ≥ 18** y **npm ≥ 9**  
+* **Java 17** + **Android SDK** &emsp;(`ANDROID_HOME` configurada)  
+* Dispositivo Android 8.0 (API 26) o superior.  
+* Cuenta en Google Play Console con permisos de *App Manager* para subir artefactos.
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+---
 
-### Android
+## Clonado e instalación
+```bash
+# 1 · Clona tu fork / repo del cliente
+git clone git@github.com:cliente/eclariti-app.git
+cd eclariti-app
 
-```sh
-# Using npm
-npm run android
+# 2 · Instala dependencias JS
+npm ci         # o yarn install
 
-# OR using Yarn
-yarn android
-```
+# 3 · Instala pods (solo macOS/iOS)
+# cd ios && pod install && cd ..
 
-### iOS
+---
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+## Variables de entorno `.env`
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+| Variable    | Descripción                                                              | Ejemplo                                     |
+|-------------|--------------------------------------------------------------------------|---------------------------------------------|
+| `API_BASE`  | URL base del servicio REST                                               | `https://app.clarityenergy.cl/wapi`         |
+| `API_TOKEN` | Token de autenticación                                                   | `9832e450ad....`          |
+| `API_ORG`   | ID de organización                                                       | `magotteaux`                                |
+| `API_CCOST` | ID de centro de costo                                                    | `H0M1DA54C7609`                              |
+| `ID_MODULE` | *No se usa en ejecución* (la app genera `CE_PROD_<MAC>` automáticamente) | `DUMMY`                                     |

@@ -77,7 +77,6 @@ yarn-error.log
 # ▸▸▸ Sensible / secretos
 # Archivos de variables de entorno
 .env
-.env.*
 *.env
 
 # Keystores y propiedades de firma
