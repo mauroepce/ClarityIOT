@@ -44,17 +44,23 @@ Aplicación React Native para **lectura de sensores de peso vía Bluetooth** con
 
 ---
 
-## Clonado e instalación
+## Clonado e instalación (Android)
+
 ```bash
-# 1 · Clona tu fork / repo del cliente
+# 1 · Clona el repo (o tu fork)
 git clone git@github.com:cliente/eclariti-app.git
 cd eclariti-app
 
-# 2 · Instala dependencias JS
-npm ci         # o yarn install
+# 2 · Instala dependencias JavaScript
+npm install          # o yarn install / pnpm install
 
-# 3 · Instala pods (solo macOS/iOS)
-# cd ios && pod install && cd ..
+# 3 · Arranca Metro en **otra** terminal
+npx react-native start
+
+# 4 · Conecta un dispositivo Android con depuración USB
+#    (o levanta un emulador) y compila la app
+npm run android      # alias de: npx react-native run-android
+```
 
 ---
 
